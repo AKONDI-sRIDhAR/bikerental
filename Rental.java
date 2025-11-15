@@ -17,7 +17,16 @@ public class Rental {
         this.startTimeMillis = System.currentTimeMillis();
         this.isReturned = false;
         
-        bike.setAvailable(false); 
+        bike.setStatus(BikeStatus.RENTED);
+    }
+
+    // Constructor for loading from persistence
+    public Rental(int rentalId, Customer customer, Bike bike, long startTimeMillis, boolean isReturned) {
+        this.rentalId = rentalId;
+        this.customer = customer;
+        this.bike = bike;
+        this.startTimeMillis = startTimeMillis;
+        this.isReturned = isReturned;
     }
 
     // Getters
@@ -37,6 +46,10 @@ public class Rental {
         return isReturned;
     }
 
+    public long getStartTimeMillis() {
+        return startTimeMillis;
+    }
+
     // Method to calculate cost and finalize the rental upon return
     public void returnBike(int durationHours) {
         if (isReturned) {
@@ -48,7 +61,7 @@ public class Rental {
         
         // Finalize state
         this.isReturned = true;
-        bike.setAvailable(true); // Return bike to inventory
+        bike.setStatus(BikeStatus.AVAILABLE); // Return bike to inventory
 
         // Print the final receipt
         System.out.println("\n--- RENTAL RECEIPT (ID: " + rentalId + ") ---");
