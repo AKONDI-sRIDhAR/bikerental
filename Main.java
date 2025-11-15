@@ -1,7 +1,7 @@
 import java.util.InputMismatchException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Scanner;
+import java.io.File;
 
 /**
  * Main class to run the interactive Bike Rental System application.
@@ -15,10 +15,11 @@ public class Main {
         BikeRentalSystem system = new BikeRentalSystem();
         Scanner scanner = new Scanner(System.in);
 
-        // Pre-populate some data for testing
-        initializeData(system);
+        // Initialize with default data only if the database is empty
+        if (new File("inventory.json").length() == 0) {
+            initializeData(system);
+        }
 
-        // 1. Authentication Check
         if (!authenticate(scanner)) {
             System.out.println("=================================================");
             System.out.println("❌ ACCESS DENIED. Invalid credentials. Exiting.");
@@ -26,14 +27,13 @@ public class Main {
             return;
         }
 
-        // 2. Main Menu Loop
         boolean running = true;
         while (running) {
             displayMenu();
             try {
-                System.out.print("Enter your choice (1-6): ");
+                System.out.print("Enter your choice (1-8): ");
                 int choice = scanner.nextInt();
-                scanner.nextLine(); // Consume newline
+                scanner.nextLine();
 
                 switch (choice) {
                     case 1:
@@ -52,15 +52,22 @@ public class Main {
                         handleCheckoutAndReturn(system, scanner);
                         break;
                     case 6:
+                        handleSendBikeToRepair(system, scanner);
+                        break;
+                    case 7:
+                        handleReturnBikeFromRepair(system, scanner);
+                        break;
+                    case 8:
                         running = false;
-                        System.out.println("\n👋 Thank you for using the Bike Rental System! Goodbye.");
+                        system.saveData();
+                        System.out.println("\n👋 Thank you for using the Bike Rental System! Data saved. Goodbye.");
                         break;
                     default:
-                        System.out.println("\n⚠️ Invalid choice. Please enter a number between 1 and 6.");
+                        System.out.println("\n⚠️ Invalid choice. Please enter a number between 1 and 8.");
                 }
             } catch (InputMismatchException e) {
                 System.out.println("\n❌ Invalid input. Please enter a valid number for the menu choice.");
-                scanner.nextLine(); // Consume the invalid input
+                scanner.nextLine();
             }
         }
         scanner.close();
@@ -86,13 +93,15 @@ public class Main {
         System.out.println("=================================================");
         System.out.println("1) Add Customer and Assign Bike (Start Rental)");
         System.out.println("2) Add New Bike to Inventory");
-        System.out.println("3) See Current Bikes Available");
-        System.out.println("4) List Actively Rented Bikes");
+        System.out.println("3) See Current Bikes Available (Free)");
+        System.out.println("4) List Actively Rented Bikes and Customers");
         System.out.println("5) Complete Rental & Generate Receipt (Checkout)");
-        System.out.println("6) Exit System");
+        System.out.println("6) Send Bike to Repair (Maintenance)");
+        System.out.println("7) Return Bike from Repair");
+        System.out.println("8) Exit System");
         System.out.println("=================================================");
     }
-    
+
     private static void initializeData(BikeRentalSystem system) {
         // Pre-populate customers
         system.addCustomer(new Customer(system.getNextCustomerId(), "Rahul Sharma"));
@@ -112,7 +121,6 @@ public class Main {
     private static void handleAddCustomerWithRental(BikeRentalSystem system, Scanner scanner) {
         System.out.println("\n--- 1) ADD CUSTOMER & START RENTAL ---");
         
-        // 1. Add Customer
         System.out.print("Enter Customer Name: ");
         String name = scanner.nextLine();
         int newId = system.getNextCustomerId();
@@ -120,7 +128,6 @@ public class Main {
         system.addCustomer(customer);
         System.out.println("  ✅ SUCCESS: New Customer " + name + " added with ID: " + newId);
         
-        // 2. Attempt to rent a bike immediately
         System.out.print("Do you want to assign a bike to " + name + " now? (y/n): ");
         if (scanner.nextLine().trim().equalsIgnoreCase("y")) {
             handleListAvailableBikes(system);
@@ -143,14 +150,14 @@ public class Main {
             String type = scanner.nextLine();
             System.out.print("Enter Hourly Rate in Rupees (e.g., 150.00): ₹");
             double rate = scanner.nextDouble();
-            scanner.nextLine(); // Consume newline
+            scanner.nextLine();
 
             Bike newBike = new Bike(id, type, rate);
             system.addBike(newBike);
             System.out.println("  ✅ SUCCESS: Bike " + id + " (" + type + ") added to inventory.");
         } catch (InputMismatchException e) {
             System.out.println("  ❌ ERROR: Invalid input for rate. Please use a number.");
-            scanner.nextLine(); // Consume invalid input
+            scanner.nextLine();
         }
     }
     
@@ -174,7 +181,7 @@ public class Main {
 
     private static void handleCheckoutAndReturn(BikeRentalSystem system, Scanner scanner) {
         System.out.println("\n--- 5) COMPLETE RENTAL & RECEIPT ---");
-        handleListRentedBikes(system); // Show which bikes are out
+        handleListRentedBikes(system);
         
         try {
             System.out.print("Enter the Bike ID being returned: ");
@@ -182,13 +189,28 @@ public class Main {
             
             System.out.print("Enter the rental duration in WHOLE HOURS: ");
             int duration = scanner.nextInt();
-            scanner.nextLine(); // Consume newline
+            scanner.nextLine();
             
             system.checkoutAndReturnBike(bikeId, duration);
             
         } catch (InputMismatchException e) {
             System.out.println("  ❌ ERROR: Invalid input. Duration must be a whole number.");
-            scanner.nextLine(); // Consume invalid input
+            scanner.nextLine();
         }
+    }
+
+    private static void handleSendBikeToRepair(BikeRentalSystem system, Scanner scanner) {
+        System.out.println("\n--- 6) SEND BIKE TO REPAIR ---");
+        handleListAvailableBikes(system);
+        System.out.print("Enter the Bike ID to send to repair: ");
+        String bikeId = scanner.nextLine();
+        system.sendBikeToRepair(bikeId);
+    }
+
+    private static void handleReturnBikeFromRepair(BikeRentalSystem system, Scanner scanner) {
+        System.out.println("\n--- 7) RETURN BIKE FROM REPAIR ---");
+        System.out.print("Enter the Bike ID that is returning from repair: ");
+        String bikeId = scanner.nextLine();
+        system.returnBikeFromRepair(bikeId);
     }
 }
