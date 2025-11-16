@@ -15,10 +15,8 @@ public class Main {
         BikeRentalSystem system = new BikeRentalSystem();
         Scanner scanner = new Scanner(System.in);
 
-        // Initialize with default data only if the database is empty
-        if (new File("inventory.json").length() == 0) {
-            initializeData(system);
-        }
+        // Initialize with default data
+        initializeData(system);
 
         if (!authenticate(scanner)) {
             System.out.println("=================================================");
@@ -59,8 +57,7 @@ public class Main {
                         break;
                     case 8:
                         running = false;
-                        system.saveData();
-                        System.out.println("\n👋 Thank you for using the Bike Rental System! Data saved. Goodbye.");
+                        System.out.println("\n👋 Thank you for using the Bike Rental System! Goodbye.");
                         break;
                     default:
                         System.out.println("\n⚠️ Invalid choice. Please enter a number between 1 and 8.");

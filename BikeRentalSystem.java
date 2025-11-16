@@ -1,130 +1,56 @@
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
 
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Manages the inventory of bikes, customers, and rental transactions with persistent storage.
+ * Manages the inventory of bikes, customers, and rental transactions with purely in-memory storage.
+ * Data will be reset every time the program starts.
  */
 public class BikeRentalSystem {
-    private List<Bike> inventory;
-    private List<Customer> customers;
-    private List<Rental> rentals;
+
+    // Initializing lists directly—no database connection needed
+    private List<Bike> inventory = new ArrayList<>();
+    private List<Customer> customers = new ArrayList<>();
+    private List<Rental> rentals = new ArrayList<>();
+
     private static int nextCustomerId = 1;
+    private static int nextRentalId = 1; // Counter for in-memory rentals
 
-    private static final String INVENTORY_FILE = "inventory.json";
-    private static final String CUSTOMERS_FILE = "customers.json";
-    private static final String RENTALS_FILE = "rentals.json";
-    private Gson gson;
+    // Removed: private static final String DB_URL...
+    // Removed: private Connection connection;
 
-    // Constructor
+    // Constructor - NOW SIMPLER
     public BikeRentalSystem() {
-        this.gson = new GsonBuilder().setPrettyPrinting().create();
-        loadInventory();
-        loadCustomers();
-        loadRentals();
+        System.out.println("System initialized with in-memory storage.");
+        // All data loading/initialization moved to the Main class check
     }
     
-    // --- Data Persistence ---
-
-    private void saveInventory() {
-        try (FileWriter writer = new FileWriter(INVENTORY_FILE)) {
-            gson.toJson(inventory, writer);
-        } catch (IOException e) {
-            System.err.println("Error saving inventory: " + e.getMessage());
-        }
-    }
-
-    private void loadInventory() {
-        try (FileReader reader = new FileReader(INVENTORY_FILE)) {
-            Type type = new TypeToken<ArrayList<Bike>>() {}.getType();
-            inventory = gson.fromJson(reader, type);
-            if (inventory == null) {
-                inventory = new ArrayList<>();
-            }
-        } catch (IOException e) {
-            inventory = new ArrayList<>();
-        }
-    }
-
-    private void saveCustomers() {
-        try (FileWriter writer = new FileWriter(CUSTOMERS_FILE)) {
-            gson.toJson(customers, writer);
-        } catch (IOException e) {
-            System.err.println("Error saving customers: " + e.getMessage());
-        }
-    }
-
-    private void loadCustomers() {
-        try (FileReader reader = new FileReader(CUSTOMERS_FILE)) {
-            Type type = new TypeToken<ArrayList<Customer>>() {}.getType();
-            customers = gson.fromJson(reader, type);
-            if (customers == null) {
-                customers = new ArrayList<>();
-            } else if (!customers.isEmpty()) {
-                nextCustomerId = customers.stream().mapToInt(Customer::getCustomerId).max().orElse(0) + 1;
-            }
-        } catch (IOException e) {
-            customers = new ArrayList<>();
-        }
-    }
-
-    private void saveRentals() {
-        List<RentalData> rentalData = rentals.stream()
-            .map(r -> new RentalData(r.getRentalId(), r.getCustomer().getCustomerId(), r.getBike().getBikeId(), r.getStartTimeMillis(), r.isReturned()))
-            .collect(Collectors.toList());
-        try (FileWriter writer = new FileWriter(RENTALS_FILE)) {
-            gson.toJson(rentalData, writer);
-        } catch (IOException e) {
-            System.err.println("Error saving rentals: " + e.getMessage());
-        }
-    }
-
-    private void loadRentals() {
-        try (FileReader reader = new FileReader(RENTALS_FILE)) {
-            Type type = new TypeToken<ArrayList<RentalData>>() {}.getType();
-            List<RentalData> rentalData = gson.fromJson(reader, type);
-            rentals = new ArrayList<>();
-            if (rentalData != null) {
-                for (RentalData data : rentalData) {
-                    Optional<Customer> customerOpt = findCustomer(data.customerId);
-                    Optional<Bike> bikeOpt = findBike(data.bikeId);
-                    if (customerOpt.isPresent() && bikeOpt.isPresent()) {
-                        Rental rental = new Rental(data.rentalId, customerOpt.get(), bikeOpt.get(), data.startTimeMillis, data.isReturned);
-                        rentals.add(rental);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            rentals = new ArrayList<>();
-        }
-    }
-
-    public void saveData() {
-        saveInventory();
-        saveCustomers();
-        saveRentals();
-    }
+    // --- Database Methods (REMOVED) ---
+    // initializeDatabase(), loadInventory(), loadCustomers(), loadRentals() are removed
 
     // --- Utility Methods ---
+
+    public boolean isDatabaseEmpty() {
+        // Now checks if the in-memory inventory is empty
+        return inventory.isEmpty();
+    }
     
     public int getNextCustomerId() {
         return nextCustomerId++;
     }
 
+    public int getNextRentalId() {
+        return nextRentalId++;
+    }
+
     // --- Customer Management ---
 
     public void addCustomer(Customer customer) {
+        // Only update the in-memory list
         customers.add(customer);
-        saveCustomers();
     }
 
     public Optional<Customer> findCustomer(int customerId) {
@@ -136,8 +62,8 @@ public class BikeRentalSystem {
     // --- Bike Inventory Management ---
 
     public void addBike(Bike bike) {
+        // Only update the in-memory list
         inventory.add(bike);
-        saveInventory();
     }
 
     public Optional<Bike> findBike(String bikeId) {
@@ -160,13 +86,17 @@ public class BikeRentalSystem {
         }
     }
 
+    private void updateBikeStatus(String bikeId, BikeStatus status) {
+        // Only update the in-memory list
+        findBike(bikeId).ifPresent(b -> b.setStatus(status));
+    }
+
     public void sendBikeToRepair(String bikeId) {
         Optional<Bike> bikeOpt = findBike(bikeId);
         if (bikeOpt.isPresent()) {
             Bike bike = bikeOpt.get();
             if (bike.getStatus() == BikeStatus.AVAILABLE) {
-                bike.setStatus(BikeStatus.IN_REPAIR);
-                saveInventory();
+                updateBikeStatus(bikeId, BikeStatus.IN_REPAIR);
                 System.out.println("Bike " + bikeId + " sent to repair.");
             } else {
                 System.out.println("Bike " + bikeId + " cannot be sent to repair. Status: " + bike.getStatus());
@@ -181,8 +111,7 @@ public class BikeRentalSystem {
         if (bikeOpt.isPresent()) {
             Bike bike = bikeOpt.get();
             if (bike.getStatus() == BikeStatus.IN_REPAIR) {
-                bike.setStatus(BikeStatus.AVAILABLE);
-                saveInventory();
+                updateBikeStatus(bikeId, BikeStatus.AVAILABLE);
                 System.out.println("Bike " + bikeId + " returned from repair.");
             } else {
                 System.out.println("Bike " + bikeId + " is not in repair. Status: " + bike.getStatus());
@@ -208,11 +137,18 @@ public class BikeRentalSystem {
             return null;
         }
 
-        // Create the new rental
-        Rental newRental = new Rental(customerOpt.get(), bikeOpt.get());
+        // Create the new rental using the required arguments
+        Rental newRental = new Rental(
+            getNextRentalId(),
+            customerOpt.get(),
+            bikeOpt.get(),
+            System.currentTimeMillis(),
+            false
+        );
+
+        // Update bike status and add to in-memory list
+        updateBikeStatus(bikeId, BikeStatus.RENTED);
         rentals.add(newRental);
-        saveInventory();
-        saveRentals();
         return newRental;
     }
     
@@ -242,10 +178,13 @@ public class BikeRentalSystem {
         }
         
         Rental rental = rentalOpt.get();
+
+        // Finalize in-memory object and print receipt
         rental.returnBike(durationHours);
-        saveInventory();
-        saveRentals();
-        
+
+        // Update bike status in memory
+        updateBikeStatus(bikeId, BikeStatus.AVAILABLE);
+
         return true;
     }
 }
