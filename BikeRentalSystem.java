@@ -9,15 +9,19 @@ import java.util.stream.Collectors;
  * Manages the inventory of bikes, customers, and rental transactions with persistent storage using a SQLite database.
  */
 public class BikeRentalSystem {
-    private List<Bike> inventory;
-    private List<Customer> customers;
-    private List<Rental> rentals;
+
+    // Initializing lists directly—no database connection needed
+    private List<Bike> inventory = new ArrayList<>();
+    private List<Customer> customers = new ArrayList<>();
+    private List<Rental> rentals = new ArrayList<>();
+
     private static int nextCustomerId = 1;
+    private static int nextRentalId = 1; // Counter for in-memory rentals
 
     private static final String DB_URL = "jdbc:sqlite:bikerental.db";
     private Connection connection;
 
-    // Constructor
+    // Constructor - NOW SIMPLER
     public BikeRentalSystem() {
         try {
             Class.forName("org.sqlite.JDBC");
@@ -159,6 +163,10 @@ public class BikeRentalSystem {
     
     public int getNextCustomerId() {
         return nextCustomerId++;
+    }
+
+    public int getNextRentalId() {
+        return nextRentalId++;
     }
 
     // --- Customer Management ---
