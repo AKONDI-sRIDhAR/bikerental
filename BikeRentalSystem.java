@@ -1,18 +1,12 @@
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
-
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.lang.reflect.Type;
+import java.sql.*;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Manages the inventory of bikes, customers, and rental transactions with persistent storage.
+ * Manages the inventory of bikes, customers, and rental transactions with persistent storage using a SQLite database.
  */
 public class BikeRentalSystem {
     private List<Bike> inventory;
@@ -20,101 +14,148 @@ public class BikeRentalSystem {
     private List<Rental> rentals;
     private static int nextCustomerId = 1;
 
-    private static final String INVENTORY_FILE = "inventory.json";
-    private static final String CUSTOMERS_FILE = "customers.json";
-    private static final String RENTALS_FILE = "rentals.json";
-    private Gson gson;
+    private static final String DB_URL = "jdbc:sqlite:bikerental.db";
+    private Connection connection;
 
     // Constructor
     public BikeRentalSystem() {
-        this.gson = new GsonBuilder().setPrettyPrinting().create();
-        loadInventory();
-        loadCustomers();
-        loadRentals();
+        try {
+            Class.forName("org.sqlite.JDBC");
+            connection = DriverManager.getConnection(DB_URL);
+            initializeDatabase();
+            loadInventory();
+            loadCustomers();
+            loadRentals();
+        } catch (SQLException | ClassNotFoundException e) {
+            System.err.println("Database setup error: " + e.getMessage());
+            // Exit if we can't connect to the database
+            System.exit(1);
+        }
     }
     
-    // --- Data Persistence ---
+    // --- Database Initialization ---
 
-    private void saveInventory() {
-        try (FileWriter writer = new FileWriter(INVENTORY_FILE)) {
-            gson.toJson(inventory, writer);
-        } catch (IOException e) {
-            System.err.println("Error saving inventory: " + e.getMessage());
+    private void initializeDatabase() throws SQLException {
+        try (Statement stmt = connection.createStatement()) {
+            // Create Bikes Table
+            stmt.execute("CREATE TABLE IF NOT EXISTS bikes (" +
+                         "bikeId TEXT PRIMARY KEY," +
+                         "type TEXT NOT NULL," +
+                         "hourlyRateRupees REAL NOT NULL," +
+                         "status TEXT NOT NULL," +
+                         "lastMaintenanceDate INTEGER," +
+                         "notes TEXT)");
+
+            // Create Customers Table
+            stmt.execute("CREATE TABLE IF NOT EXISTS customers (" +
+                         "customerId INTEGER PRIMARY KEY," +
+                         "name TEXT NOT NULL)");
+
+            // Create Rentals Table
+            stmt.execute("CREATE TABLE IF NOT EXISTS rentals (" +
+                         "rentalId INTEGER PRIMARY KEY," +
+                         "customerId INTEGER NOT NULL," +
+                         "bikeId TEXT NOT NULL," +
+                         "startTimeMillis INTEGER NOT NULL," +
+                         "isReturned INTEGER NOT NULL DEFAULT 0," + // 0 for false, 1 for true
+                         "FOREIGN KEY (customerId) REFERENCES customers(customerId)," +
+                         "FOREIGN KEY (bikeId) REFERENCES bikes(bikeId))");
         }
     }
+
+    // --- Data Loading from Database ---
 
     private void loadInventory() {
-        try (FileReader reader = new FileReader(INVENTORY_FILE)) {
-            Type type = new TypeToken<ArrayList<Bike>>() {}.getType();
-            inventory = gson.fromJson(reader, type);
-            if (inventory == null) {
-                inventory = new ArrayList<>();
+        inventory = new ArrayList<>();
+        String sql = "SELECT * FROM bikes";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                Bike bike = new Bike(
+                    rs.getString("bikeId"),
+                    rs.getString("type"),
+                    rs.getDouble("hourlyRateRupees")
+                );
+                bike.setStatus(BikeStatus.valueOf(rs.getString("status")));
+                bike.setLastMaintenanceDate(new Date(rs.getLong("lastMaintenanceDate")));
+                bike.setNotes(rs.getString("notes"));
+                inventory.add(bike);
             }
-        } catch (IOException e) {
-            inventory = new ArrayList<>();
-        }
-    }
-
-    private void saveCustomers() {
-        try (FileWriter writer = new FileWriter(CUSTOMERS_FILE)) {
-            gson.toJson(customers, writer);
-        } catch (IOException e) {
-            System.err.println("Error saving customers: " + e.getMessage());
+        } catch (SQLException e) {
+            System.err.println("Error loading inventory from database: " + e.getMessage());
         }
     }
 
     private void loadCustomers() {
-        try (FileReader reader = new FileReader(CUSTOMERS_FILE)) {
-            Type type = new TypeToken<ArrayList<Customer>>() {}.getType();
-            customers = gson.fromJson(reader, type);
-            if (customers == null) {
-                customers = new ArrayList<>();
-            } else if (!customers.isEmpty()) {
-                nextCustomerId = customers.stream().mapToInt(Customer::getCustomerId).max().orElse(0) + 1;
+        customers = new ArrayList<>();
+        String sql = "SELECT * FROM customers ORDER BY customerId";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                Customer customer = new Customer(
+                    rs.getInt("customerId"),
+                    rs.getString("name")
+                );
+                customers.add(customer);
             }
-        } catch (IOException e) {
-            customers = new ArrayList<>();
-        }
-    }
-
-    private void saveRentals() {
-        List<RentalData> rentalData = rentals.stream()
-            .map(r -> new RentalData(r.getRentalId(), r.getCustomer().getCustomerId(), r.getBike().getBikeId(), r.getStartTimeMillis(), r.isReturned()))
-            .collect(Collectors.toList());
-        try (FileWriter writer = new FileWriter(RENTALS_FILE)) {
-            gson.toJson(rentalData, writer);
-        } catch (IOException e) {
-            System.err.println("Error saving rentals: " + e.getMessage());
+            // Set the next customer ID based on the last one loaded
+            if (!customers.isEmpty()) {
+                nextCustomerId = customers.get(customers.size() - 1).getCustomerId() + 1;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error loading customers from database: " + e.getMessage());
         }
     }
 
     private void loadRentals() {
-        try (FileReader reader = new FileReader(RENTALS_FILE)) {
-            Type type = new TypeToken<ArrayList<RentalData>>() {}.getType();
-            List<RentalData> rentalData = gson.fromJson(reader, type);
-            rentals = new ArrayList<>();
-            if (rentalData != null) {
-                for (RentalData data : rentalData) {
-                    Optional<Customer> customerOpt = findCustomer(data.customerId);
-                    Optional<Bike> bikeOpt = findBike(data.bikeId);
-                    if (customerOpt.isPresent() && bikeOpt.isPresent()) {
-                        Rental rental = new Rental(data.rentalId, customerOpt.get(), bikeOpt.get(), data.startTimeMillis, data.isReturned);
-                        rentals.add(rental);
-                    }
+        rentals = new ArrayList<>();
+        String sql = "SELECT * FROM rentals";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                int customerId = rs.getInt("customerId");
+                String bikeId = rs.getString("bikeId");
+
+                Optional<Customer> customerOpt = findCustomer(customerId);
+                Optional<Bike> bikeOpt = findBike(bikeId);
+
+                if (customerOpt.isPresent() && bikeOpt.isPresent()) {
+                    Rental rental = new Rental(
+                        rs.getInt("rentalId"),
+                        customerOpt.get(),
+                        bikeOpt.get(),
+                        rs.getLong("startTimeMillis"),
+                        rs.getInt("isReturned") == 1
+                    );
+                    rentals.add(rental);
+                } else {
+                     System.err.println("Could not load rental " + rs.getInt("rentalId") + " due to missing customer or bike.");
                 }
             }
-        } catch (IOException e) {
-            rentals = new ArrayList<>();
+        } catch (SQLException e) {
+            System.err.println("Error loading rentals from database: " + e.getMessage());
         }
     }
 
+    // --- Data Persistence (No longer needed, but keeping the empty method for compatibility) ---
     public void saveData() {
-        saveInventory();
-        saveCustomers();
-        saveRentals();
+        // Data is now saved directly to the database with each transaction.
     }
 
     // --- Utility Methods ---
+
+    public boolean isDatabaseEmpty() {
+        String sql = "SELECT COUNT(*) FROM bikes";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt(1) == 0;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error checking if database is empty: " + e.getMessage());
+        }
+        return true; // Assume empty if there's an error
+    }
     
     public int getNextCustomerId() {
         return nextCustomerId++;
@@ -123,8 +164,16 @@ public class BikeRentalSystem {
     // --- Customer Management ---
 
     public void addCustomer(Customer customer) {
-        customers.add(customer);
-        saveCustomers();
+        String sql = "INSERT INTO customers(customerId, name) VALUES(?,?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, customer.getCustomerId());
+            pstmt.setString(2, customer.getName());
+            pstmt.executeUpdate();
+            // Also add to in-memory list
+            customers.add(customer);
+        } catch (SQLException e) {
+            System.err.println("Error adding customer: " + e.getMessage());
+        }
     }
 
     public Optional<Customer> findCustomer(int customerId) {
@@ -136,8 +185,20 @@ public class BikeRentalSystem {
     // --- Bike Inventory Management ---
 
     public void addBike(Bike bike) {
-        inventory.add(bike);
-        saveInventory();
+        String sql = "INSERT INTO bikes(bikeId, type, hourlyRateRupees, status, lastMaintenanceDate, notes) VALUES(?,?,?,?,?,?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, bike.getBikeId());
+            pstmt.setString(2, bike.getType());
+            pstmt.setDouble(3, bike.getHourlyRateRupees());
+            pstmt.setString(4, bike.getStatus().name());
+            pstmt.setLong(5, bike.getLastMaintenanceDate().getTime());
+            pstmt.setString(6, bike.getNotes());
+            pstmt.executeUpdate();
+            // Also add to in-memory list
+            inventory.add(bike);
+        } catch (SQLException e) {
+            System.err.println("Error adding bike: " + e.getMessage());
+        }
     }
 
     public Optional<Bike> findBike(String bikeId) {
@@ -160,13 +221,25 @@ public class BikeRentalSystem {
         }
     }
 
+    private void updateBikeStatus(String bikeId, BikeStatus status) {
+        String sql = "UPDATE bikes SET status = ? WHERE bikeId = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, status.name());
+            pstmt.setString(2, bikeId);
+            pstmt.executeUpdate();
+            // Also update in-memory list
+            findBike(bikeId).ifPresent(b -> b.setStatus(status));
+        } catch (SQLException e) {
+            System.err.println("Error updating bike status: " + e.getMessage());
+        }
+    }
+
     public void sendBikeToRepair(String bikeId) {
         Optional<Bike> bikeOpt = findBike(bikeId);
         if (bikeOpt.isPresent()) {
             Bike bike = bikeOpt.get();
             if (bike.getStatus() == BikeStatus.AVAILABLE) {
-                bike.setStatus(BikeStatus.IN_REPAIR);
-                saveInventory();
+                updateBikeStatus(bikeId, BikeStatus.IN_REPAIR);
                 System.out.println("Bike " + bikeId + " sent to repair.");
             } else {
                 System.out.println("Bike " + bikeId + " cannot be sent to repair. Status: " + bike.getStatus());
@@ -181,8 +254,7 @@ public class BikeRentalSystem {
         if (bikeOpt.isPresent()) {
             Bike bike = bikeOpt.get();
             if (bike.getStatus() == BikeStatus.IN_REPAIR) {
-                bike.setStatus(BikeStatus.AVAILABLE);
-                saveInventory();
+                updateBikeStatus(bikeId, BikeStatus.AVAILABLE);
                 System.out.println("Bike " + bikeId + " returned from repair.");
             } else {
                 System.out.println("Bike " + bikeId + " is not in repair. Status: " + bike.getStatus());
@@ -210,10 +282,26 @@ public class BikeRentalSystem {
 
         // Create the new rental
         Rental newRental = new Rental(customerOpt.get(), bikeOpt.get());
-        rentals.add(newRental);
-        saveInventory();
-        saveRentals();
-        return newRental;
+
+        String sql = "INSERT INTO rentals(rentalId, customerId, bikeId, startTimeMillis, isReturned) VALUES(?,?,?,?,?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, newRental.getRentalId());
+            pstmt.setInt(2, newRental.getCustomer().getCustomerId());
+            pstmt.setString(3, newRental.getBike().getBikeId());
+            pstmt.setLong(4, newRental.getStartTimeMillis());
+            pstmt.setInt(5, 0); // Not returned
+            pstmt.executeUpdate();
+
+            // Update bike status
+            updateBikeStatus(bikeId, BikeStatus.RENTED);
+            rentals.add(newRental);
+            return newRental;
+        } catch (SQLException e) {
+            System.err.println("Error creating rental: " + e.getMessage());
+            // Rollback status change in-memory if DB fails
+            bikeOpt.get().setStatus(BikeStatus.AVAILABLE);
+            return null;
+        }
     }
     
     public List<Rental> getCurrentlyRentedBikes() {
@@ -242,10 +330,22 @@ public class BikeRentalSystem {
         }
         
         Rental rental = rentalOpt.get();
-        rental.returnBike(durationHours);
-        saveInventory();
-        saveRentals();
-        
-        return true;
+
+        String sql = "UPDATE rentals SET isReturned = 1 WHERE rentalId = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, rental.getRentalId());
+            pstmt.executeUpdate();
+
+            // Finalize in-memory object and print receipt
+            rental.returnBike(durationHours);
+
+            // Update bike status in DB and memory
+            updateBikeStatus(bikeId, BikeStatus.AVAILABLE);
+
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Error finalizing rental return: " + e.getMessage());
+            return false;
+        }
     }
 }
