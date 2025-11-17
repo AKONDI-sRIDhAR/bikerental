@@ -1,70 +1,41 @@
-
 import java.util.Date;
+import java.io.Serializable;
 
-/**
- * Represents a bike available for rent.
- */
-public class Bike {
+public class Bike implements Serializable {
+    private static final long serialVersionUID = 1L; 
+    
     private String bikeId;
-    private String type; // e.g., "Mountain", "Road", "Electric"
-    private double hourlyRateRupees; // Rate in Indian Rupees (₹)
+    private String model; 
+    private double hourlyRate;
     private BikeStatus status;
     private Date lastMaintenanceDate;
     private String notes;
 
-    // Constructor
-    public Bike(String bikeId, String type, double hourlyRateRupees) {
+    // Minimal Constructor
+    public Bike(String bikeId, String model, double hourlyRate) {
         this.bikeId = bikeId;
-        this.type = type;
-        this.hourlyRateRupees = hourlyRateRupees;
-        this.status = BikeStatus.AVAILABLE; // Bikes start as available
-        this.lastMaintenanceDate = new Date(); // Default to current date
+        this.model = model;
+        this.hourlyRate = hourlyRate;
+        this.status = BikeStatus.AVAILABLE; 
+        this.lastMaintenanceDate = new Date(); 
         this.notes = "";
     }
 
     // Getters
-    public String getBikeId() {
-        return bikeId;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public double getHourlyRateRupees() {
-        return hourlyRateRupees;
-    }
-
-    public BikeStatus getStatus() {
-        return status;
-    }
-
-    public Date getLastMaintenanceDate() {
-        return lastMaintenanceDate;
-    }
-
-    public String getNotes() {
-        return notes;
-    }
+    public String getBikeId() { return bikeId; }
+    public String getModel() { return model; } 
+    public double getHourlyRate() { return hourlyRate; } 
+    public BikeStatus getStatus() { return status; }
+    public Date getLastMaintenanceDate() { return lastMaintenanceDate; }
+    public String getNotes() { return notes; }
 
     // Setters
-    public void setStatus(BikeStatus status) {
-        this.status = status;
-    }
+    public void setStatus(BikeStatus status) { this.status = status; }
+    public void setLastMaintenanceDate(Date lastMaintenanceDate) { this.lastMaintenanceDate = lastMaintenanceDate; }
+    public void setNotes(String notes) { this.notes = notes; }
 
-    public void setLastMaintenanceDate(Date lastMaintenanceDate) {
-        this.lastMaintenanceDate = lastMaintenanceDate;
-    }
-
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
-
-    // Method to display bike information
+    // Display
     public void displayInfo() {
-        System.out.println("Bike ID: " + bikeId +
-                           ", Type: " + type +
-                           ", Rate: ₹" + String.format("%.2f", hourlyRateRupees) + "/hr" +
-                           ", Status: " + status);
+        System.out.printf("| %-8s | %-25s | %-12.2f rs / hr |\n", bikeId, model, hourlyRate);
     }
 }
