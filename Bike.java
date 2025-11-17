@@ -38,4 +38,8 @@ public class Bike implements Serializable {
     public void displayInfo() {
         System.out.printf("| %-8s | %-25s | %-12.2f rs / hr |\n", bikeId, model, hourlyRate);
     }
+
+    public void displayInfoWithStatus() {
+        System.out.printf("| %-8s | %-25s | %-12.2f rs / hr | %-10s |\n", bikeId, model, hourlyRate, status);
+    }
 }

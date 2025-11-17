@@ -56,35 +56,41 @@ public class Main {
                 scanner.nextLine(); // Consume newline
 
                 switch (choice) {
-                    case 1: // Start a rental
+                    case 1:
                         handleRentBike();
                         break;
-                    case 2: // End a rental
+                    case 2:
                         handleReturnBike();
                         break;
-                    case 3: // List available bikes
+                    case 3:
                         System.out.println("\n--- Available Bikes ---");
                         system.listAvailableBikes();
                         break;
-                    case 4: // Active rentals
+                    case 4:
                         handleListActiveRentals();
                         break;
-                    case 5: // Send a bike to repair
+                    case 5:
                         handleSendToRepair();
                         break;
-                    case 6: // Cost estimation
-                        handleCostEstimation();
+                    case 6:
+                        handleReturnBikeFromRepair();
                         break;
-                    case 7: // Add New Bike
+                    case 7:
                         handleAddBike();
                         break;
-                    case 8: // Exit / Logout
+                    case 8:
+                        handleListAllBikes();
+                        break;
+                    case 9:
+                        handleCostEstimation();
+                        break;
+                    case 10: // Exit / Logout
                         system.saveData(); // SAVE DATA ON EXIT
                         running = false;
                         System.out.println("Logged out. Thank you for using the Bike Rental System. Goodbye!");
                         break;
                     default:
-                        System.out.println("Invalid choice. Please enter a number from 1 to 8.");
+                        System.out.println("Invalid choice. Please enter a number from 1 to 10.");
                 }
             } catch (InputMismatchException e) {
                 System.out.println("❌ Invalid input. Please enter a number.");
@@ -100,9 +106,11 @@ public class Main {
         System.out.println("3. List Available Bikes");
         System.out.println("4. View Active Rentals");
         System.out.println("5. Send a Bike to Repair");
-        System.out.println("6. Cost Estimation");
+        System.out.println("6. Return Bike from Repair");
         System.out.println("7. Add New Bike");
-        System.out.println("8. Exit / Logout");
+        System.out.println("8. View All Bikes (Status)");
+        System.out.println("9. Cost Estimation");
+        System.out.println("10. Exit / Logout");
         System.out.print("Enter choice: ");
     }
     
@@ -187,6 +195,18 @@ public class Main {
         System.out.print("Enter Bike ID to send to repair: ");
         String bikeId = scanner.nextLine().trim();
         system.sendBikeToRepair(bikeId);
+    }
+
+    private static void handleReturnBikeFromRepair() {
+        System.out.println("\n--- Return Bike from Repair ---");
+        System.out.print("Enter Bike ID that is returning from repair: ");
+        String bikeId = scanner.nextLine().trim();
+        system.returnBikeFromRepair(bikeId);
+    }
+
+    private static void handleListAllBikes() {
+        System.out.println("\n--- All Bikes (Inventory View) ---");
+        system.listAllBikes();
     }
     
     private static void handleCostEstimation() {

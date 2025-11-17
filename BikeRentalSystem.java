@@ -128,6 +128,20 @@ public class BikeRentalSystem {
         }
     }
 
+    public void listAllBikes() {
+        if (inventory.isEmpty()) {
+            System.out.println("  (No bikes in the inventory.)");
+        } else {
+            System.out.println("----------------------------------------------------------");
+            System.out.printf("| %-8s | %-25s | %-12s | %-10s |\n", "ID", "Bike Model", "Rent", "Status");
+            System.out.println("----------------------------------------------------------");
+            for (Bike bike : inventory) {
+                bike.displayInfoWithStatus();
+            }
+            System.out.println("----------------------------------------------------------");
+        }
+    }
+
     private void updateBikeStatus(String bikeId, BikeStatus status) {
         findBike(bikeId).ifPresent(b -> b.setStatus(status));
     }
