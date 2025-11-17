@@ -128,6 +128,20 @@ public class BikeRentalSystem {
         }
     }
 
+    public void listAllBikes() {
+        if (inventory.isEmpty()) {
+            System.out.println("  (No bikes in the inventory.)");
+        } else {
+            System.out.println("----------------------------------------------------------");
+            System.out.printf("| %-8s | %-25s | %-12s | %-10s |\n", "ID", "Bike Model", "Rent", "Status");
+            System.out.println("----------------------------------------------------------");
+            for (Bike bike : inventory) {
+                bike.displayInfoWithStatus();
+            }
+            System.out.println("----------------------------------------------------------");
+        }
+    }
+
     private void updateBikeStatus(String bikeId, BikeStatus status) {
         findBike(bikeId).ifPresent(b -> b.setStatus(status));
     }
@@ -215,6 +229,12 @@ public class BikeRentalSystem {
                 .filter(r -> r.getBike().getBikeId().equalsIgnoreCase(bikeId))
                 .findFirst();
     }
+
+    public Optional<Rental> findActiveRentalById(int rentalId) {
+        return getCurrentlyRentedBikes().stream()
+                .filter(r -> r.getRentalId() == rentalId)
+                .findFirst();
+    }
     
     public boolean checkoutAndReturnBike(String bikeId, int durationHours) {
         if (durationHours <= 0) {
@@ -230,6 +250,31 @@ public class BikeRentalSystem {
         }
         
         Rental rental = rentalOpt.get();
+
+        // Finalize in-memory object and print receipt
+        rental.returnBike(durationHours);
+
+        // Update bike status in memory
+        updateBikeStatus(bikeId, BikeStatus.AVAILABLE);
+
+        return true;
+    }
+
+    public boolean checkoutAndReturnBike(int rentalId, int durationHours) {
+        if (durationHours <= 0) {
+            System.out.println("  ❌ ERROR: Rental duration must be greater than zero hours.");
+            return false;
+        }
+
+        Optional<Rental> rentalOpt = findActiveRentalById(rentalId);
+
+        if (rentalOpt.isEmpty()) {
+            System.out.println("  ❌ ERROR: Rental ID " + rentalId + " is either not found or not active.");
+            return false;
+        }
+
+        Rental rental = rentalOpt.get();
+        String bikeId = rental.getBike().getBikeId();
 
         // Finalize in-memory object and print receipt
         rental.returnBike(durationHours);
