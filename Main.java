@@ -111,7 +111,7 @@ public class Main {
     private static void handleRentBike() {
         System.out.println("\n--- Start a Rental ---");
         
-        System.out.print("Enter Customer Name (will be registered if new): ");
+        System.out.print("Enter Customer Name: ");
         String customerName = scanner.nextLine().trim();
 
         // 1. Find or Create Customer
@@ -120,12 +120,10 @@ public class Main {
 
         if (customerOpt.isPresent()) {
             customerToRent = customerOpt.get();
-            System.out.println("Found existing customer: " + customerToRent.getName() + " (ID: " + customerToRent.getCustomerId() + ")");
         } else {
             int newId = system.getNextCustomerId();
             customerToRent = new Customer(newId, customerName);
             system.addCustomer(customerToRent);
-            System.out.println("✅ Registered new customer: " + customerToRent.getName() + " (ID: " + customerToRent.getCustomerId() + ")");
         }
 
         system.listAvailableBikes();
@@ -150,14 +148,15 @@ public class Main {
         System.out.println("Currently Active Rentals:");
         activeRentals.forEach(Rental::displayActiveRentalInfo);
         
-        System.out.print("Enter Bike ID being returned: ");
-        String bikeId = scanner.nextLine().trim();
+        System.out.print("Enter Rental ID being returned: ");
+        int rentalId = scanner.nextInt();
+        scanner.nextLine();
 
         System.out.print("Enter rental duration (full hours): ");
         int durationHours = scanner.nextInt();
         scanner.nextLine();
 
-        system.checkoutAndReturnBike(bikeId, durationHours);
+        system.checkoutAndReturnBike(rentalId, durationHours);
     }
     
     private static void handleListActiveRentals() {
@@ -167,19 +166,19 @@ public class Main {
         if (activeRentals.isEmpty()) {
             System.out.println("  (No bikes are currently rented.)");
         } else {
-            System.out.println("------------------------------------------------------------------");
-            System.out.printf("| %-8s | %-12s | %-15s | %-15s |\n", "Rental ID", "Customer ID", "Bike ID", "Start Time");
-            System.out.println("------------------------------------------------------------------");
+            System.out.println("---------------------------------------------------------------------------------");
+            System.out.printf("| %-8s | %-20s | %-15s | %-25s |\n", "Rental ID", "Customer Name", "Bike ID", "Start Time");
+            System.out.println("---------------------------------------------------------------------------------");
             for (Rental r : activeRentals) {
                 // Formatting for display, using Date to show a readable time
-                System.out.printf("| %-9d| %-12d | %-15s | %-15s |\n", 
-                    r.getRentalId(), 
-                    r.getCustomer().getCustomerId(), 
-                    r.getBike().getBikeId(), 
-                    new Date(r.getStartTimeMillis()) 
+                System.out.printf("| %-9d| %-20s | %-15s | %-25s |\n",
+                    r.getRentalId(),
+                    r.getCustomer().getName(),
+                    r.getBike().getBikeId(),
+                    new Date(r.getStartTimeMillis())
                 );
             }
-            System.out.println("------------------------------------------------------------------");
+            System.out.println("---------------------------------------------------------------------------------");
         }
     }
     
